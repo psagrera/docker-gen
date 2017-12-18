@@ -17,6 +17,7 @@ var (
 
 type Context []*RuntimeContainer
 
+
 func (c *Context) Env() map[string]string {
 	return splitKeyValueSlice(os.Environ())
 }
@@ -49,6 +50,7 @@ func SetDockerEnv(d *docker.Env) {
 	dockerEnv = d
 }
 
+
 type Address struct {
 	IP           string
 	IP6LinkLocal string
@@ -57,6 +59,7 @@ type Address struct {
 	HostPort     string
 	Proto        string
 	HostIP       string
+	Swarm_address []string
 }
 
 type Network struct {
@@ -84,6 +87,7 @@ type State struct {
 type RuntimeContainer struct {
 	ID           string
 	Addresses    []Address
+	//Addresses_swarm []Address_swarm
 	Networks     []Network
 	Gateway      string
 	Name         string
