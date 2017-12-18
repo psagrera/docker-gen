@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"strings"
 	"sync"
+	//"reflect"
 	"syscall"
 	"time"
 
@@ -72,6 +73,8 @@ func NewGenerator(gc GeneratorConfig) (*generator, error) {
 
 func (g *generator) Generate() error {
 	g.generateFromContainers()
+	//g.getSwarminfo()
+	//g.generateAddressFromSwarmm()
 	g.generateAtInterval()
 	g.generateFromEvents()
 	g.generateFromSignals()
@@ -129,6 +132,26 @@ func (g *generator) generateFromContainers() {
 		g.sendSignalToContainer(config)
 	}
 }
+
+/*func (g *generator) generateAddressFromSwarmm(){
+	// This function is under construction
+	containers_swarm, err := g.getSwarminfo()
+	if err != nil {
+		log.Printf("Error listing swarm address info: %s\n", err)
+		return
+	}
+	for _, config := range g.Configs.Config {
+		changed := GenerateFile_swarm(config, containers_swarm)
+		if !changed {
+			log.Printf("Contents of %s did not change. Skipping notification '%s'", config.Dest, config.NotifyCmd)
+			continue
+		}
+		g.runNotifyCmd(config)
+		g.sendSignalToContainer(config)	
+		log.Printf("KK: %s",containers_swarm)
+		log.Printf("CONFIG: %s\n",config)	
+	}
+}*/
 
 func (g *generator) generateAtInterval() {
 	for _, config := range g.Configs.Config {
@@ -341,7 +364,41 @@ func (g *generator) sendSignalToContainer(config Config) {
 	}
 }
 
+func (g *generator) getSwarminfo() ([]string, error) {
+/*func (g *generator) getSwarminfo() ([]*RuntimeContainer_swarm, error) {*/
+	apiInfo, err := g.Client.Info()
+	if err != nil {
+		log.Printf("Error retrieving swarm tasks info: %s\n", err)
+	} else {
+		SetServerInfo(apiInfo)
+	}
+	
+	// Filters
+	desired_state := make(map[string][]string)
+	desired_state["desired-state"] = append(desired_state["desired-state"], "running")
+	desired_state["service"] = append(desired_state["service"],"proxy_opennti-input-syslog")
+	
+	task, err := g.Client.ListTasks(docker.ListTasksOptions{
+		// We need to filter out by desired-state = running and service = 'netflow'
+		Filters: desired_state,
+		})
+	//containers_swarm := []*RuntimeContainer_swarm{}
+	test := []string{}
+	for _,tasks := range task {
+		my_tasks,err := g.Client.InspectTask(tasks.ID)
+		if err != nil {
+			log.Printf("Error inspecting tasks: %s: %s\n", my_tasks.ID, err)
+		}	
+		for _,v := range my_tasks.NetworksAttachments {
+			test = append(test,strings.Split(v.Addresses[0], "/")[0])
+	    }
+    }
+    //log.Printf(" Swarm_info_test: %s",test)
+    return test, nil
+}
+
 func (g *generator) getContainers() ([]*RuntimeContainer, error) {
+	
 	apiInfo, err := g.Client.Info()
 	if err != nil {
 		log.Printf("Error retrieving docker server info: %s\n", err)
@@ -356,8 +413,13 @@ func (g *generator) getContainers() ([]*RuntimeContainer, error) {
 	if err != nil {
 		return nil, err
 	}
-
+	
 	containers := []*RuntimeContainer{}
+    //fmt.Println(reflect.TypeOf(g.getSwarminfo()))
+    add_swarm,err := g.getSwarminfo()
+	if err != nil {
+		return nil, err
+	}
 	for _, apiContainer := range apiContainers {
 		container, err := g.Client.InspectContainer(apiContainer.ID)
 		if err != nil {
@@ -389,6 +451,7 @@ func (g *generator) getContainers() ([]*RuntimeContainer, error) {
 			IP6LinkLocal: container.NetworkSettings.LinkLocalIPv6Address,
 			IP6Global:    container.NetworkSettings.GlobalIPv6Address,
 		}
+
 		for k, v := range container.NetworkSettings.Ports {
 			address := Address{
 				IP:           container.NetworkSettings.IPAddress,
@@ -396,6 +459,7 @@ func (g *generator) getContainers() ([]*RuntimeContainer, error) {
 				IP6Global:    container.NetworkSettings.GlobalIPv6Address,
 				Port:         k.Port(),
 				Proto:        k.Proto(),
+				Swarm_address: add_swarm,
 			}
 			if len(v) > 0 {
 				address.HostPort = v[0].HostPort
@@ -405,6 +469,7 @@ func (g *generator) getContainers() ([]*RuntimeContainer, error) {
 				address)
 
 		}
+
 		for k, v := range container.NetworkSettings.Networks {
 			network := Network{
 				IP:                  v.IPAddress,
@@ -451,8 +516,10 @@ func (g *generator) getContainers() ([]*RuntimeContainer, error) {
 		runtimeContainer.Labels = container.Config.Labels
 		containers = append(containers, runtimeContainer)
 	}
+    
+	//g.getSwarminfo()
+	//log.Printf(" containers_info: %s",containers)
 	return containers, nil
-
 }
 
 func newSignalChannel() <-chan os.Signal {
