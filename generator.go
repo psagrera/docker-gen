@@ -372,29 +372,47 @@ func (g *generator) getSwarminfo() ([]string, error) {
 	} else {
 		SetServerInfo(apiInfo)
 	}
-	
-	// Filters
+	service_list := []string{}
 	desired_state := make(map[string][]string)
-	desired_state["desired-state"] = append(desired_state["desired-state"], "running")
-	desired_state["service"] = append(desired_state["service"],"proxy_opennti-input-syslog")
-	
+	// Need to verify that service being filtered exists
+	services,err := g.Client.ListServices(docker.ListServicesOptions{})
+	for _,service := range services {
+		service_list = append (service_list,service.Spec.Name)
+	}
+
+	// Getting service filter 
+	for _, config := range g.Configs.Config {
+		desired_state["desired-state"] = append(desired_state["desired-state"], "running")
+		for _,srv := range service_list {
+			if config.FilterService == srv {
+				desired_state["service"] = append(desired_state["service"],config.FilterService)
+		    }
+		    //log.Printf("Not Found %s",srv)
+	    }
+	}
+	// check if key service exists 
+    if val, ok := desired_state["service"]; ok {
+    	 log.Printf("Filtering by service: %s", val)
+    } else {
+    	log.Printf("Service doesn't exists, service filter will be ignored...")
+    }
 	task, err := g.Client.ListTasks(docker.ListTasksOptions{
 		// We need to filter out by desired-state = running and service = 'netflow'
 		Filters: desired_state,
 		})
-	//containers_swarm := []*RuntimeContainer_swarm{}
-	test := []string{}
+	
+	swarm_add_list := []string{}
 	for _,tasks := range task {
 		my_tasks,err := g.Client.InspectTask(tasks.ID)
 		if err != nil {
 			log.Printf("Error inspecting tasks: %s: %s\n", my_tasks.ID, err)
 		}	
 		for _,v := range my_tasks.NetworksAttachments {
-			test = append(test,strings.Split(v.Addresses[0], "/")[0])
+			swarm_add_list = append(swarm_add_list,strings.Split(v.Addresses[0], "/")[0])
 	    }
     }
     //log.Printf(" Swarm_info_test: %s",test)
-    return test, nil
+    return swarm_add_list, nil
 }
 
 func (g *generator) getContainers() ([]*RuntimeContainer, error) {
@@ -573,3 +591,4 @@ func newDebounceChannel(input chan *docker.APIEvents, wait *Wait) chan *docker.A
 
 	return output
 }
+

@@ -22,6 +22,7 @@ var (
 	wait                    string
 	notifyCmd               string
 	notifyOutput            bool
+	filterService           string 
 	notifySigHUPContainerID string
 	onlyExposed             bool
 	onlyPublished           bool
@@ -89,7 +90,7 @@ func initFlags() {
 	flag.BoolVar(&watch, "watch", false, "watch for container changes")
 	flag.StringVar(&wait, "wait", "", "minimum and maximum durations to wait (e.g. \"500ms:2s\") before triggering generate")
 	flag.BoolVar(&onlyExposed, "only-exposed", false, "only include containers with exposed ports")
-
+	flag.StringVar(&filterService, "filter-service", "", "Service filter in swarm context ")
 	flag.BoolVar(&onlyPublished, "only-published", false,
 		"only include containers with published ports (implies -only-exposed)")
 	flag.BoolVar(&includeStopped, "include-stopped", false, "include stopped containers")
@@ -110,9 +111,11 @@ func initFlags() {
 	flag.Parse()
 }
 
+
+
 func main() {
 	initFlags()
-
+  
 	if version {
 		fmt.Println(buildVersion)
 		return
@@ -144,6 +147,7 @@ func main() {
 			NotifyOutput:     notifyOutput,
 			NotifyContainers: make(map[string]docker.Signal),
 			OnlyExposed:      onlyExposed,
+			FilterService:    filterService,
 			OnlyPublished:    onlyPublished,
 			IncludeStopped:   includeStopped,
 			Interval:         interval,
@@ -181,3 +185,4 @@ func main() {
 		log.Fatalf("Error running generate: %v", err)
 	}
 }
+
