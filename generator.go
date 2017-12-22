@@ -387,10 +387,9 @@ func (g *generator) getSwarminfo() ([]string, error) {
 			if config.FilterService == srv {
 				desired_state["service"] = append(desired_state["service"],config.FilterService)
 		    }
-		    //log.Printf("Not Found %s",srv)
 	    }
 	}
-	// check if key service exists 
+	// check if service exists 
     if val, ok := desired_state["service"]; ok {
     	 log.Printf("Filtering by service: %s", val)
     } else {
@@ -401,17 +400,20 @@ func (g *generator) getSwarminfo() ([]string, error) {
 		Filters: desired_state,
 		})
 	
+	node_list :=[]int{}
 	swarm_add_list := []string{}
 	for _,tasks := range task {
 		my_tasks,err := g.Client.InspectTask(tasks.ID)
 		if err != nil {
 			log.Printf("Error inspecting tasks: %s: %s\n", my_tasks.ID, err)
-		}	
+		}
+		node_list = append(node_list,my_tasks.Slot)
 		for _,v := range my_tasks.NetworksAttachments {
 			swarm_add_list = append(swarm_add_list,strings.Split(v.Addresses[0], "/")[0])
 	    }
     }
-    //log.Printf(" Swarm_info_test: %s",test)
+    log.Printf(" Service addresses : %s",swarm_add_list)
+    log.Printf("Service running in node/s: %d",node_list)	
     return swarm_add_list, nil
 }
 
@@ -433,7 +435,7 @@ func (g *generator) getContainers() ([]*RuntimeContainer, error) {
 	}
 	
 	containers := []*RuntimeContainer{}
-    //fmt.Println(reflect.TypeOf(g.getSwarminfo()))
+
     add_swarm,err := g.getSwarminfo()
 	if err != nil {
 		return nil, err
