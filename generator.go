@@ -293,7 +293,8 @@ func (g *generator) generateFromEvents() {
 						time.Sleep(10 * time.Second)
 						break
 					}
-					if event.Status == "start" || event.Status == "stop" || event.Status == "die" {
+					log.Printf("Events: %s",event.Status)
+					if event.Status == "start" || event.Status == "stop" || event.Status == "die" || event.Status == "service:update" {
 						log.Printf("Received event %s for container %s", event.Status, event.ID[:12])
 						// fanout event to all watchers
 						for _, watcher := range watchers {
@@ -593,4 +594,8 @@ func newDebounceChannel(input chan *docker.APIEvents, wait *Wait) chan *docker.A
 
 	return output
 }
+
+
+
+
 
